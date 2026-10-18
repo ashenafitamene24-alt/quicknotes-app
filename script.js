@@ -27,10 +27,30 @@ function formatDateTime(date) {
   }).format(date);
 }
 
-// 3. Render function: rebuilds the list using createElement & textContent
+// 3. Update note count paragraph correctly
+function updateCount(count = notes.length) {
+  if (count === 0) {
+    noteCount.textContent = 'You have no notes yet.';
+  } else if (count === 1) {
+    noteCount.textContent = 'You have 1 note.';
+  } else {
+    noteCount.textContent = `You have ${count} notes.`;
+  }
+}
+
+// 4. Delete a note by its unique ID
+function deleteNote(id) {
+  notes = notes.filter((note) => note.id !== id);
+  render();
+}
+
+// 5. Render function: rebuilds the list using createElement & textContent
 function render() {
   // Clear the list container
   notesList.textContent = '';
+
+  // Update count
+  updateCount(notes.length);
 
   // Render each note as a card
   notes.forEach((note) => {
@@ -66,11 +86,15 @@ function render() {
 
     footerRow.appendChild(metaLeft);
 
+    // Delete button: removes its own note
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'btn-delete';
     deleteBtn.textContent = 'Delete';
     deleteBtn.setAttribute('aria-label', `Delete note: ${note.text.slice(0, 20)}`);
+    deleteBtn.addEventListener('click', () => {
+      deleteNote(note.id);
+    });
     footerRow.appendChild(deleteBtn);
 
     li.appendChild(headerRow);
@@ -79,17 +103,43 @@ function render() {
   });
 }
 
-// 4. Form submission handler
+// Clear error on input change
+noteInput.addEventListener('input', () => {
+  if (errorMessage.textContent) {
+    errorMessage.textContent = '';
+  }
+});
+
+// 6. Form submission with validation
 noteForm.addEventListener('submit', (e) => {
   e.preventDefault();
 
-  const text = noteInput.value.trim();
+  const rawText = noteInput.value;
+  const trimmedText = rawText.trim();
+
+  // Validation: empty or only spaces
+  if (trimmedText === '') {
+    errorMessage.textContent = 'Please type a note first.';
+    noteInput.focus();
+    return;
+  }
+
+  // Validation: over 200 characters
+  if (trimmedText.length > 200) {
+    errorMessage.textContent = 'Notes must be 200 characters or fewer.';
+    noteInput.focus();
+    return;
+  }
+
+  // Clear validation error when valid note is added
+  errorMessage.textContent = '';
+
   const category = noteCategory.value;
 
   // Create note object
   const newNote = {
     id: Date.now().toString(),
-    text: text,
+    text: trimmedText,
     category: category,
     createdAt: formatDateTime(new Date())
   };
