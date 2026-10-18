@@ -12,8 +12,35 @@ const noteCount = document.querySelector('#note-count');
 const searchInput = document.querySelector('#search-input');
 const clearAllBtn = document.querySelector('#clear-all-btn');
 
+const STORAGE_KEY = 'quicknotes_notes';
+
 // 2. State: array of note objects
 let notes = [];
+
+// Load notes from localStorage
+function loadNotes() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        notes = parsed;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load notes from localStorage:', err);
+    notes = [];
+  }
+}
+
+// Save notes to localStorage
+function saveNotes() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+  } catch (err) {
+    console.error('Failed to save notes to localStorage:', err);
+  }
+}
 
 // Helper function to format human-readable date & time
 function formatDateTime(date) {
@@ -41,6 +68,7 @@ function updateCount(count = notes.length) {
 // 4. Delete a note by its unique ID
 function deleteNote(id) {
   notes = notes.filter((note) => note.id !== id);
+  saveNotes();
   render();
 }
 
@@ -49,13 +77,29 @@ function render() {
   // Clear the list container
   notesList.textContent = '';
 
-  // Update count
+  // Always update count reflecting total notes
   updateCount(notes.length);
 
-  // Render each note as a card
-  notes.forEach((note) => {
+  // Search filter (case-insensitive)
+  const query = searchInput.value.trim().toLowerCase();
+  const visibleNotes = query
+    ? notes.filter((note) => note.text.toLowerCase().includes(query))
+    : notes;
+
+  // Search finds nothing
+  if (query && visibleNotes.length === 0) {
+    const noMatchLi = document.createElement('li');
+    noMatchLi.className = 'empty-state';
+    noMatchLi.textContent = 'No notes match your search.';
+    notesList.appendChild(noMatchLi);
+    return;
+  }
+
+  // Render each visible note as a card
+  visibleNotes.forEach((note) => {
     const li = document.createElement('li');
-    li.className = `note-card category-${note.category.toLowerCase()}`;
+    const categoryKey = (note.category || 'personal').toLowerCase();
+    li.className = `note-card category-${categoryKey}`;
     li.dataset.id = note.id;
 
     // Header row with note text
@@ -75,7 +119,7 @@ function render() {
     metaLeft.className = 'note-meta-left';
 
     const badge = document.createElement('span');
-    badge.className = `category-badge badge-${note.category.toLowerCase()}`;
+    badge.className = `category-badge badge-${categoryKey}`;
     badge.textContent = note.category.charAt(0).toUpperCase() + note.category.slice(1);
     metaLeft.appendChild(badge);
 
@@ -108,6 +152,11 @@ noteInput.addEventListener('input', () => {
   if (errorMessage.textContent) {
     errorMessage.textContent = '';
   }
+});
+
+// Search input listener (filters in real time)
+searchInput.addEventListener('input', () => {
+  render();
 });
 
 // 6. Form submission with validation
@@ -145,11 +194,28 @@ noteForm.addEventListener('submit', (e) => {
   };
 
   notes.push(newNote);
+  saveNotes();
   render();
 
   // Clear input
   noteInput.value = '';
 });
 
-// Initial render
+// 7. Bonus: Clear all notes with confirmation prompt
+if (clearAllBtn) {
+  clearAllBtn.addEventListener('click', () => {
+    if (notes.length === 0) {
+      return;
+    }
+    const confirmed = confirm('Delete all notes?');
+    if (confirmed) {
+      notes = [];
+      saveNotes();
+      render();
+    }
+  });
+}
+
+// 8. Application Bootstrap
+loadNotes();
 render();
